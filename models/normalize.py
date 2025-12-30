@@ -21,17 +21,7 @@ def create_stats_buffers(
 
     for key, mode in modes.items():
         assert mode in ["mean_std", "min_max"]
-
         shape = tuple(shapes[key])
-
-        if "image" in key:
-            # sanity checks
-            assert len(shape) == 3, f"number of dimensions of {key} != 3 ({shape=}"
-            c, h, w = shape
-            assert c < h and c < w, f"{key} is not channel first ({shape=})"
-            # override image shape to be invariant to height and width
-            shape = (c, 1, 1)
-
         # Note: we initialize mean, std, min, max to infinity. They should be overwritten
         # downstream by `stats` or `policy.load_state_dict`, as expected. During forward,
         # we assert they are not infinity anymore.
