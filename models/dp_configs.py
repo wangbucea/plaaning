@@ -82,30 +82,32 @@ class DiffusionConfig:
     """
 
     # Inputs / output structure.
-    n_obs_steps: int = 2
-    horizon: int = 16
+    n_obs_steps: int = 1
+    horizon: int = 8
     n_action_steps: int = 8
 
     input_shapes: dict[str, list[int]] = field(
         default_factory=lambda: {
-            "observation.image": [3, 96, 96],
-            "observation.state": [2],
+            "observation.state": [6],
+            "observation.point":[3],
         }
     )
     output_shapes: dict[str, list[int]] = field(
         default_factory=lambda: {
-            "action": [2],
+            "action": [6],
         }
     )
 
     # Normalization / Unnormalization
     input_normalization_modes: dict[str, str] = field(
         default_factory=lambda: {
-            "observation.image": "mean_std",
-            "observation.state": "min_max",
+            # "observation.image": "mean_std",
+            "observation.state": "mean_std",
+            "action":"mean_std",
+            "observation.point":"mean_std"
         }
     )
-    output_normalization_modes: dict[str, str] = field(default_factory=lambda: {"action": "min_max"})
+    output_normalization_modes: dict[str, str] = field(default_factory=lambda: {"action": "mean_std"})
 
     # Architecture / modeling.
     # Vision backbone.
@@ -123,12 +125,12 @@ class DiffusionConfig:
     diffusion_step_embed_dim: int = 128
     use_film_scale_modulation: bool = True
     # Noise scheduler.
-    noise_scheduler_type: str = "DDPM"
+    noise_scheduler_type: str = "DDIM"
     num_train_timesteps: int = 100
     beta_schedule: str = "squaredcos_cap_v2"
     beta_start: float = 0.0001
     beta_end: float = 0.02
-    prediction_type: str = "epsilon"
+    prediction_type: str = "sample"
     clip_sample: bool = True
     clip_sample_range: float = 1.0
 
@@ -144,32 +146,6 @@ class DiffusionConfig:
             raise ValueError(
                 f"`vision_backbone` must be one of the ResNet variants. Got {self.vision_backbone}."
             )
-
-        image_keys = {k for k in self.input_shapes if k.startswith("observation.image")}
-
-        if len(image_keys) == 0 and "observation.environment_state" not in self.input_shapes:
-            raise ValueError("You must provide at least one image or the environment state among the inputs.")
-
-        if len(image_keys) > 0:
-            if self.crop_shape is not None:
-                for image_key in image_keys:
-                    if (
-                        self.crop_shape[0] > self.input_shapes[image_key][1]
-                        or self.crop_shape[1] > self.input_shapes[image_key][2]
-                    ):
-                        raise ValueError(
-                            f"`crop_shape` should fit within `input_shapes[{image_key}]`. Got {self.crop_shape} "
-                            f"for `crop_shape` and {self.input_shapes[image_key]} for "
-                            "`input_shapes[{image_key}]`."
-                        )
-            # Check that all input images have the same shape.
-            first_image_key = next(iter(image_keys))
-            for image_key in image_keys:
-                if self.input_shapes[image_key] != self.input_shapes[first_image_key]:
-                    raise ValueError(
-                        f"`input_shapes[{image_key}]` does not match `input_shapes[{first_image_key}]`, but we "
-                        "expect all image shapes to match."
-                    )
 
         supported_prediction_types = ["epsilon", "sample"]
         if self.prediction_type not in supported_prediction_types:
